@@ -1,123 +1,132 @@
 import pygame
-from pygame.math import Vector2
 
-import os
-import sys
+# Инициализация Pygame
+pygame.init()
 
+# Размеры окна
+WIDTH = 800
+HEIGHT = 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Moving Sprite Game")
 
-def load_image(name, colorkey=None):  # это для загрузки изображения
-    fullname = os.path.join('data', name)
-    if not os.path.isfile(fullname):
-        print(f"Файл с изображением '{fullname}' не найден")
-        sys.exit()
-    image = pygame.image.load(fullname)
-    return image.convert_alpha()
+# Цвета
+WHITE = (255, 255, 255)
 
+# Загрузка спрайтов игрока (замените на свои пути к изображениям)
+player_sprites = [
+    pygame.image.load("player_run10.png").convert_alpha(),
+    pygame.image.load("player_run20.png").convert_alpha()]
 
-class Player(pygame.sprite.Sprite):  # класс игрока
+player_sprites_left = [
+    pygame.image.load("player_run10_left.png").convert_alpha(),
+    pygame.image.load("player_run20_left.png").convert_alpha()]
 
-    def __init__(self, pos, walls, *groups):
-        super().__init__(*groups)
-        self.image = pygame.Surface((30, 50))  # пока что изображение игрока определяется этими двумя строками
-        self.image.fill((235, 0, 220))  # заменить на красивые картинки
-        self.rect = self.image.get_rect(center=pos)
-        self.vel = Vector2(0, 0)
-        self.pos = Vector2(pos)
-        self.walls = walls
-        self.camera = Vector2(0, 0)
+# Размер спрайта
+SPRITE_SIZE = player_sprites[0].get_rect().size
 
-    def update(self):
-        # движение камеры ха игроком и столкновения
-        self.camera -= self.vel
-
-        self.pos.x += self.vel.x
-        self.rect.centerx = self.pos.x
-
-        self.pos.y += self.vel.y
-        self.rect.centery = self.pos.y
-
-        for wall in pygame.sprite.spritecollide(self, self.walls, False):
-            if self.vel.x > 0:
-                self.rect.right = wall.rect.left
-            elif self.vel.x < 0:
-                self.rect.left = wall.rect.right
-            self.pos.x = self.rect.centerx
-            self.camera.x += self.vel.x
-
-        for wall in pygame.sprite.spritecollide(self, self.walls, False):
-            if self.vel.y > 0:
-                self.rect.bottom = wall.rect.top
-            elif self.vel.y < 0:
-                self.rect.top = wall.rect.bottom
-            self.pos.y = self.rect.centery
-            self.camera.y += self.vel.y
+# Позиция игрока
+# player_x = WIDTH // 2 - SPRITE_SIZE[0] // 2
+# player_y = HEIGHT // 2 - SPRITE_SIZE[1] // 2
+player_x, player_y = 370, 270
 
 
-class Enemy(pygame.sprite.Sprite):
-    pass
+player_speed = 5
+print(player_x, player_y)
+
+# Индекс текущего спрайта
+current_sprite_index = 0
+last_sprite_change_time = 0
+
+# Лабиринт (0 - стена, 1 - проход)
+maze = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+    [0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0],
+    [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+    [0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+    [0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+    [0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+]
+
+# Размер ячейки
+CELL_SIZE = 30
+
+# Основной цикл игры
+running = True
+clock = pygame.time.Clock()
+
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT]:
+        new_x = player_x - player_speed
+        if maze[player_y // CELL_SIZE][new_x // CELL_SIZE] == 1:
+            player_x = new_x
+    if keys[pygame.K_RIGHT]:
+        new_x = player_x + player_speed
+        if maze[player_y // CELL_SIZE][(new_x + CELL_SIZE - 1) // CELL_SIZE] == 1:
+            player_x = new_x
+    if keys[pygame.K_UP]:
+        new_y = player_y - player_speed
+        if maze[new_y // CELL_SIZE][player_x // CELL_SIZE] == 1:
+           player_y = new_y
+    if keys[pygame.K_DOWN]:
+        new_y = player_y + player_speed
+        if maze[(new_y + CELL_SIZE - 1) // CELL_SIZE][player_x // CELL_SIZE] == 1:
+            player_y = new_y
 
 
-class Medicine(pygame.sprite.Sprite):
-    pass
+    # Меняем спрайт каждую секунду
+    current_time = pygame.time.get_ticks()
+    if current_time - last_sprite_change_time >= 300: # 1000 миллисекунд = 1 секунда
+        current_sprite_index = (current_sprite_index + 1) % len(player_sprites)
+        last_sprite_change_time = current_time
+
+    # бег
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]:
+        current_time = pygame.time.get_ticks()
+        if current_time - last_sprite_change_time >= 100:  # 1000 миллисекунд = 1 секунда
+            current_sprite_index = (current_sprite_index + 1) % len(player_sprites)
+            last_sprite_change_time = current_time
+    else:
+        player = pygame.image.load("player_run10.png").convert_alpha()
 
 
-class Wall(pygame.sprite.Sprite):  # класс стен лабиринта
-
-    def __init__(self, x, y, w, h):
-        super().__init__()
-        self.image = pygame.Surface((w, h))  # потом можно будет и стены красивее отрисовать
-        self.image.fill((240, 100, 0))
-        self.rect = self.image.get_rect(topleft=(x, y))
-
-
-def main():
-    screen = pygame.display.set_mode((640, 480))
-    clock = pygame.time.Clock()
-    all_sprites = pygame.sprite.Group()
-    walls = pygame.sprite.Group()
-    for rect in ((100, 170, 90, 20), (200, 100, 20, 140),  # вот сюда нужно добавлять параметры стен лабиринта
-                 (400, 60, 150, 100), (300, 470, 150, 100)):
-        walls.add(Wall(*rect))
-    all_sprites.add(walls)
-    player = Player((320, 240), walls, all_sprites)
-
-    done = False
-
-    while not done:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                done = True
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_d:
-                    player.vel.x = 5
-                elif event.key == pygame.K_a:
-                    player.vel.x = -5
-                elif event.key == pygame.K_w:
-                    player.vel.y = -5
-                elif event.key == pygame.K_s:
-                    player.vel.y = 5
-            elif event.type == pygame.KEYUP:
-                if event.key == pygame.K_d and player.vel.x > 0:
-                    player.vel.x = 0
-                elif event.key == pygame.K_a and player.vel.x < 0:
-                    player.vel.x = 0
-                elif event.key == pygame.K_w and player.vel.y < 0:
-                    player.vel.y = 0
-                elif event.key == pygame.K_s and player.vel.y > 0:
-                    player.vel.y = 0
-
-        all_sprites.update()
-
-        screen.fill((30, 30, 30))
-        for sprite in all_sprites:
-            # Add the player's camera offset to the coords of all sprites.
-            screen.blit(sprite.image, sprite.rect.topleft + player.camera)
-
-        pygame.display.flip()
-        clock.tick(30)
+    # Отрисовка лабиринта
+    screen.fill(WHITE)
+    for row_idx, row in enumerate(maze):
+        for col_idx, cell in enumerate(row):
+            if cell == 0:
+                pygame.draw.rect(screen, (0, 0, 0), (col_idx * CELL_SIZE, row_idx * CELL_SIZE, CELL_SIZE, CELL_SIZE))
 
 
-if __name__ == '__main__':
-    pygame.init()
-    main()
-    pygame.quit()
+    # Отрисовка игрока
+    if keys[pygame.K_RIGHT] or keys[pygame.K_UP] or keys[pygame.K_DOWN]:
+        screen.blit(player_sprites[current_sprite_index], (player_x, player_y))
+    elif keys[pygame.K_LEFT]:
+        screen.blit(player_sprites_left[current_sprite_index], (player_x, player_y))
+    else:
+        screen.blit(player, (player_x, player_y))
+
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
