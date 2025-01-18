@@ -3,7 +3,7 @@ from pygame.math import Vector2
 import os
 import sys
 def load_image(name, colorkey=None):  # это для загрузки изображения
-    fullname = os.path.join(name)
+    fullname = os.path.join('data', name)
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
