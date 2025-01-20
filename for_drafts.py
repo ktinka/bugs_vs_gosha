@@ -1,9 +1,9 @@
 import pygame
 
-
-from pygame.math import Vector2
 import os
 import sys
+
+
 def load_image(name, colorkey=None):  # это для загрузки изображения
     fullname = os.path.join('data', name)
     if not os.path.isfile(fullname):
@@ -11,23 +11,27 @@ def load_image(name, colorkey=None):  # это для загрузки изоб�
         sys.exit()
     image = pygame.image.load(fullname)
     return image.convert_alpha()
+
+
 class Player(pygame.sprite.Sprite):  # класс игрока
     def __init__(self, pos, walls, current_time, *groups):
         super().__init__(*groups)
         self.images = [load_image('player_run10.png'), load_image('player_run20.png')]
-        self.image = self.images[0]  # пока что изображение игрока определяется этими двумя строками
+        self.image = self.images[0]
         self.rect = self.image.get_rect(center=pos)
-        self.vel = Vector2(100, 0)
-        self.pos = Vector2(pos)
+        self.vel = pygame.math.Vector2(100, 0)
+        self.pos = pygame.math.Vector2(pos)
         self.walls = walls
-        self.camera = Vector2(100, 0)
+        self.camera = pygame.math.Vector2(100, 0)
         self.current_frame = 0
         self.last_frame_time = 0
         self.frame_rate = 100
+
     def sprites(self):
         current_time = self.current_time
         keys = pygame.key.get_pressed()
-        if (keys[pygame.K_a] or keys[pygame.K_LEFT]) or (keys[pygame.K_w] or keys[pygame.K_UP]) or (keys[pygame.K_s] or keys[pygame.K_DOWN]) or (keys[pygame.K_d] or keys[pygame.K_RIGHT]):
+        if (keys[pygame.K_a] or keys[pygame.K_LEFT]) or (keys[pygame.K_w] or keys[pygame.K_UP]) or (
+                keys[pygame.K_s] or keys[pygame.K_DOWN]) or (keys[pygame.K_d] or keys[pygame.K_RIGHT]):
             if current_time - self.last_frame_time >= self.frame_rate:
                 self.current_frame = (self.current_frame + 1) % len(self.images)
                 self.image = self.images[self.current_frame]
@@ -35,7 +39,7 @@ class Player(pygame.sprite.Sprite):  # класс игрока
 
     def update(self):
         current_time = pygame.time.get_ticks()
-        # движение камеры ха игроком и столкновения
+        # движение камеры за игроком и столкновения
         self.camera -= self.vel
         self.pos.x += self.vel.x
         self.rect.centerx = self.pos.x
@@ -61,16 +65,23 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                 self.image = self.images[self.current_frame]
                 self.last_frame_time = current_time
 
+
 class Enemy(pygame.sprite.Sprite):
     pass
+
+
 class Medicine(pygame.sprite.Sprite):
     pass
+
+
 class Wall(pygame.sprite.Sprite):  # класс стен лабиринта
     def __init__(self, x, y, w, h):
         super().__init__()
-        self.image = pygame.Surface((w, h))  # потом можно будет и стены красивее отрисовать
+        self.image = pygame.Surface((w, h))
         self.image.fill((240, 100, 0))
         self.rect = self.image.get_rect(topleft=(x, y))
+
+
 def main():
     screen = pygame.display.set_mode((640, 480))
     clock = pygame.time.Clock()
@@ -109,14 +120,15 @@ def main():
                     player.vel.y = 0
                 elif (event.key == pygame.K_s or event.key == pygame.K_DOWN) and player.vel.y > 0:
                     player.vel.y = 0
-        #all_sprites.sprites()
+
         all_sprites.update()
         screen.fill((30, 30, 30))
         for sprite in all_sprites:
-            # Add the player's camera offset to the coords of all sprites.
             screen.blit(sprite.image, sprite.rect.topleft + player.camera)
         pygame.display.flip()
         clock.tick(50)
+
+
 if __name__ == '__main__':
     pygame.init()
     main()
