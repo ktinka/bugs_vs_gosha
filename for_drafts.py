@@ -3,6 +3,45 @@ import pygame
 import os
 import sys
 
+FPS = 50
+
+
+def terminate():
+    pygame.quit()
+    sys.exit()
+
+
+def start_screen(screen, clock):
+    intro_text = ["Гоша против Багов", "",
+                  "Правила игры",
+                  "Вы играете за программиста Гошу,",
+                  "Ваша задача - собрать достаточное",
+                  "количество монет, отстреливаясь от жуков.",
+                  "Управление: WASD - хождение, E - стрельба"]
+
+    fon = pygame.transform.scale(load_image('fon2.jpg'), (700, 500))
+    screen.blit(fon, (0, 0))
+    font = pygame.font.Font(None, 30)
+    text_coord = 50
+    for line in intro_text:
+        string_rendered = font.render(line, 1, pygame.Color('white'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 10
+        intro_rect.top = text_coord
+        intro_rect.x = 10
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                return  # начинаем игру
+        pygame.display.flip()
+        clock.tick(FPS)
+
 
 def load_image(name, colorkey=None):  # это для загрузки изображения
     fullname = os.path.join('data', name)
@@ -14,7 +53,7 @@ def load_image(name, colorkey=None):  # это для загрузки изоб�
 
 
 class Player(pygame.sprite.Sprite):  # класс игрока
-    def __init__(self, pos, walls, current_time, *groups):
+    def __init__(self, pos, walls, enemies, current_time, *groups):
         super().__init__(*groups)
         self.images = [load_image('player_run10.png'), load_image('player_run20.png')]
         self.image = self.images[0]
@@ -22,10 +61,13 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.vel = pygame.math.Vector2(100, 0)
         self.pos = pygame.math.Vector2(pos)
         self.walls = walls
+        self.enemies = enemies
         self.camera = pygame.math.Vector2(100, 0)
         self.current_frame = 0
         self.last_frame_time = 0
         self.frame_rate = 100
+
+        self.health = 100
 
     def sprites(self):
         current_time = self.current_time
@@ -65,9 +107,48 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                 self.image = self.images[self.current_frame]
                 self.last_frame_time = current_time
 
+        for enemy in pygame.sprite.spritecollide(self, self.enemies, False):
+            if self.vel.x > 0:
+                self.rect.right = enemy.rect.left
+            elif self.vel.x < 0:
+                self.rect.left = enemy.rect.right
+            self.pos.x = self.rect.centerx
+            self.camera.x += self.vel.x
+            self.health -= 1
+            if self.health == 0:
+                print("конец игры")
+        for enemy in pygame.sprite.spritecollide(self, self.enemies, False):
+            if self.vel.y > 0:
+                self.rect.bottom = enemy.rect.top
+            elif self.vel.y < 0:
+                self.rect.top = enemy.rect.bottom
+            self.pos.y = self.rect.centery
+            self.camera.y += self.vel.y
+            self.health -= 1
+            if self.health == 0:
+                print("конец игры")
+
 
 class Enemy(pygame.sprite.Sprite):
-    pass
+    def __init__(self, pos, walls, current_time, *groups):
+        super().__init__(*groups)
+        self.image = load_image("enemy3.png")
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect(center=pos)
+        self.rect.x = pos[0]
+        self.rect.y = pos[1]
+        self.walls = walls
+        self.current_frame = 0
+        self.last_frame_time = 0
+        self.frame_rate = 100
+
+    def update(self):
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_frame_time >= self.frame_rate:
+            self.rect = self.rect.move(0, 1)
+            for wall in pygame.sprite.spritecollide(self, self.walls, False):
+                self.rect = self.rect.move(0, -1)
+            self.last_frame_time = current_time
 
 
 class Medicine(pygame.sprite.Sprite):
@@ -85,18 +166,23 @@ class Wall(pygame.sprite.Sprite):  # класс стен лабиринта
 def main():
     screen = pygame.display.set_mode((640, 480))
     clock = pygame.time.Clock()
+    start_screen(screen, clock)
     all_sprites = pygame.sprite.Group()
+    enemies = pygame.sprite.Group()
     walls = pygame.sprite.Group()
-    for rect in ((0, 0, 30, 600), (31, 0, 600, 30), (570, 30, 30, 570), (0, 570, 600, 30),
-                 (210, 30, 30, 60), (60, 60, 120, 30), (60, 120, 60, 30), (60, 120, 30, 90),
-                 (150, 120, 180, 30), (270, 60, 150, 30), (360, 120, 60, 30), (510, 60, 30, 90),
-                 (450, 120, 60, 30), (450, 120, 30, 210), (360, 180, 180, 30), (270, 240, 150, 30),
-                 (241, 180, 210, 30), (210, 210, 30, 60), (30, 360, 450, 30), (210, 390, 30, 60),
-                 (450, 420, 30, 90), (450, 420, 30, 90), (360, 480, 180, 30), (30, 480, 300, 30),):
+    for rect in (((0, 0, 30, 600), (31, 0, 600, 30), (570, 30, 30, 570), (0, 570, 600, 30),
+                  (210, 30, 30, 60), (60, 60, 120, 30), (60, 120, 60, 30), (60, 120, 30, 90),
+                  (150, 120, 180, 30), (270, 60, 150, 30), (360, 120, 60, 30), (510, 60, 30, 90),
+                  (450, 120, 60, 30), (450, 120, 30, 210), (360, 180, 180, 30), (270, 240, 150, 30),
+                  (241, 180, 210, 30), (210, 210, 30, 60), (30, 360, 450, 30), (210, 390, 30, 60),
+                  (450, 420, 30, 90), (450, 420, 30, 90), (360, 480, 180, 30), (30, 480, 300, 30),)):
         walls.add(Wall(*rect))
     all_sprites.add(walls)
     current_time = pygame.time.get_ticks()
-    player = Player((320, 240), walls, current_time, all_sprites)
+    enemy = Enemy((180, 285), walls, current_time, all_sprites)
+    enemies.add(enemy)
+    all_sprites.add(enemies)
+    player = Player((320, 240), walls, enemies, current_time, all_sprites)
     done = False
     while not done:
         for event in pygame.event.get():
