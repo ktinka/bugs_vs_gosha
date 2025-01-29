@@ -1,6 +1,6 @@
-# bags_vs_gosha
+# bugs_vs_gosha
 ## название
-bags vs gosha
+bugs vs gosha
 ## состав участников команды
 Попова Юля (Yuliaaaaaaaaaaaaaaaaaaaa) и Рахимова Шокира (ktinka)
 ## идея игры
