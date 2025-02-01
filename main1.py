@@ -17,11 +17,12 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         super().__init__(*groups)
         self.image = load_image('player_run10.png')  # пока что изображение игрока определяется этими двумя строками
         self.rect = self.image.get_rect(center=pos)
-        self.vel = Vector2(0, 0)
+        self.vel = Vector2(100, 0)
         self.pos = Vector2(pos)
         self.walls = walls
-        self.camera = Vector2(0, 0)
+        self.camera = Vector2(100, 0)
     def update(self):
+
         # движение камеры ха игроком и столкновения
         self.camera -= self.vel
         self.pos.x += self.vel.x
@@ -42,10 +43,42 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                 self.rect.top = wall.rect.bottom
             self.pos.y = self.rect.centery
             self.camera.y += self.vel.y
+
+
 class Enemy(pygame.sprite.Sprite):
     pass
 class Medicine(pygame.sprite.Sprite):
     pass
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, start_pos, target_pos):
+        super().__init__()
+        self.image = pygame.Surface((10, 10))
+        self.image.fill(RED)
+        self.rect = self.image.get_rect(center=start_pos)
+        self.pos = Vector2(start_pos)
+        self.target = Vector2(target_pos)
+        self.speed = 10
+        self.calculate_velocity()
+
+    def calculate_velocity(self):
+        direction = self.target - self.pos
+        if direction.length() > 0:
+            self.velocity = direction.normalize() * self.speed
+        else:
+            self.velocity = Vector2(0, 0)
+
+    def update(self):
+        self.pos += self.velocity
+        self.rect.center = self.pos
+
+        if (self.target - self.pos).length() < self.speed:
+            self.kill()
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
+
 class Wall(pygame.sprite.Sprite):  # класс стен лабиринта
     def __init__(self, x, y, w, h):
         super().__init__()
@@ -95,7 +128,7 @@ def main():
             # Add the player's camera offset to the coords of all sprites.
             screen.blit(sprite.image, sprite.rect.topleft + player.camera)
         pygame.display.flip()
-        clock.tick(50000)
+        clock.tick(50)
 if __name__ == '__main__':
     pygame.init()
     main()
