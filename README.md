@@ -30,3 +30,6 @@ p.s. взгляд сверху
 - pygame
 - стандартные библиотеки sys, os
 
+## Сcылка на видео
+
+https://disk.yandex.ru/d/tX06tpYFP2ziXQ
