@@ -3,6 +3,9 @@ import sys
 
 import pygame
 
+killed_enemies = 0
+used_medicine = 0
+
 
 def load_image(name, colorkey=None):  # это для загрузки изображения
     fullname = os.path.join('data', name)
@@ -53,8 +56,44 @@ def start_screen(screen, clock):
         clock.tick(FPS)
 
 
+def end_screen(won):
+    screen = pygame.display.set_mode((640, 480))
+    clock = pygame.time.Clock()
+    if won:
+        intro_text = ["Игра окончена", "Поздравляем, вы выиграли!",
+                      "Нажмите на любую клавишу для новой игры"]
+    else:
+        intro_text = ["Игра окончена", "К сожалению, вы проиграли!",
+                      "Нажмите на любую клавишу для новой игры"]
+
+    fon = pygame.transform.scale(load_image('fon2.jpg'), (700, 500))
+    screen.blit(fon, (0, 0))
+    font = pygame.font.Font(None, 30)
+    text_coord = 50
+    for line in intro_text:
+        string_rendered = font.render(line, 1, pygame.Color('white'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 10
+        intro_rect.top = text_coord
+        intro_rect.x = 10
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                main()
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 class Player(pygame.sprite.Sprite):  # класс игрока
-    def __init__(self, pos, walls, enemies, current_time, *groups):
+    def __init__(self, pos, walls, enemies, clock, current_time, *groups):
         super().__init__(*groups)
         self.images = [load_image('player_run30.png'), load_image('player_run40.png')]
         self.image = self.images[0]  # пока что изображение игрока определяется этими двумя строками
@@ -67,7 +106,8 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.last_frame_time = 0
         self.frame_rate = 250
 
-        self.health = 100
+        self.health = 1000
+        self.clock = clock
         self.enemies = enemies
         self.current_time = current_time
 
@@ -92,6 +132,7 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.rect.centerx = self.pos.x
         self.pos.y += self.vel.y
         self.rect.centery = self.pos.y
+
         for wall in pygame.sprite.spritecollide(self, self.walls, False):
             if self.vel.x > 0:
                 self.rect.right = wall.rect.left
@@ -116,25 +157,25 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                     self.last_frame_time = current_time
 
         for enemy in pygame.sprite.spritecollide(self, self.enemies, False):
-            if self.vel.x > 0:
+            """if self.vel.x > 0:
                 self.rect.right = enemy.rect.left
             elif self.vel.x < 0:
                 self.rect.left = enemy.rect.right
             self.pos.x = self.rect.centerx
-            self.camera.x += self.vel.x
+            self.camera.x += self.vel.x"""
             self.health -= 1
             if self.health == 0:
-                print("конец игры")
+                end_screen(won=False)
         for enemy in pygame.sprite.spritecollide(self, self.enemies, False):
-            if self.vel.y > 0:
+            """if self.vel.y > 0:
                 self.rect.bottom = enemy.rect.top
             elif self.vel.y < 0:
                 self.rect.top = enemy.rect.bottom
             self.pos.y = self.rect.centery
-            self.camera.y += self.vel.y
+            self.camera.y += self.vel.y"""
             self.health -= 1
             if self.health == 0:
-                print("конец игры")
+                end_screen(won=False)
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -143,30 +184,59 @@ class Enemy(pygame.sprite.Sprite):
         self.image = load_image("enemy3.png")
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=pos)
+        self.pos = pygame.Vector2(pos)
         self.rect.x = pos[0]
         self.rect.y = pos[1]
         self.walls = walls
         self.current_frame = 0
         self.last_frame_time = 0
         self.frame_rate = 100
+        self.health = 100
+        self.speed = 0.5
 
     def update(self):
         current_time = pygame.time.get_ticks()
         if current_time - self.last_frame_time >= self.frame_rate:
             self.rect = self.rect.move(0, 1)
-            for wall in pygame.sprite.spritecollide(self, self.walls, False):
+            for _ in pygame.sprite.spritecollide(self, self.walls, False):
                 self.rect = self.rect.move(0, -1)
             self.last_frame_time = current_time
 
+    def collision_check(self, bullets):
+        for _ in pygame.sprite.spritecollide(self, bullets, False):
+            if self.health > 0:
+                self.health -= 1
+            else:
+                self.kill()
+
+    def calculate_velocity(self, player_pos):
+        direction = player_pos - self.pos
+        if direction.length() > 0:
+            self.velocity = direction.normalize() * self.speed
+        else:
+            self.velocity = pygame.math.Vector2(0, 0)
+
+    def follow_player(self, player_pos):
+        self.pos += self.velocity
+        self.rect.center = self.pos
+
+        if (player_pos - self.pos).length() < self.speed:
+            pass
+        for _ in pygame.sprite.spritecollide(self, self.walls, False):
+            pass
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
 
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, start_pos, target_pos):
+    def __init__(self, walls, start_pos, target_pos):
         super().__init__()
         self.image = pygame.Surface((10, 10))
         self.image.fill((255, 0, 0), )
         self.rect = self.image.get_rect(center=start_pos)
         self.pos = pygame.math.Vector2(start_pos)
         self.target = pygame.math.Vector2(target_pos)
+        self.walls = walls
         self.speed = 10
         self.calculate_velocity()
 
@@ -182,6 +252,8 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.center = self.pos
 
         if (self.target - self.pos).length() < self.speed:
+            self.kill()
+        for _ in pygame.sprite.spritecollide(self, self.walls, False):
             self.kill()
 
     def draw(self, screen):
@@ -208,37 +280,49 @@ def main():
     walls = pygame.sprite.Group()
     enemies = pygame.sprite.Group()
     bullets = pygame.sprite.Group()
-    for rect in ((0, 100, 100, 1000), (200, 0, 1100, 100),
-                 (1100, 200, 100, 1200), (500, 100, 100, 500),
+    for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100),
+                 (1100, 100, 100, 1200), (500, 100, 100, 500),
                  (100, 300, 300, 100), (700, 400, 300, 100),
-                 (200, 1200, 900, 100), (200, 700, 100, 200)):
+                 (100, 1200, 1000, 100), (200, 700, 100, 200), (730, 880, 100, 200)):
         walls.add(Wall(*rect))
     all_sprites.add(walls)
     current_time = pygame.time.get_ticks()
-    enemy = Enemy((180, 250), walls, current_time, all_sprites)
-    enemies.add(enemy)
+    for pos in ((180, 250), (150, 110)):
+        enemy = Enemy(pos, walls, current_time, all_sprites)
+        enemies.add(enemy)
     all_sprites.add(enemies)
-    player = Player((320, 240), walls, enemies, current_time, all_sprites)
-    done = False
-    while not done:
+    player = Player((320, 240), walls, enemies, clock, current_time, all_sprites)
+    running = True
+    while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                done = True
+                running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Создание пули в координатах персонажа
                 player_pos = player.pos
                 target_pos = event.pos
-                bullet = Bullet(player.rect.center, target_pos)
+                bullet = Bullet(walls, player_pos, target_pos)
                 all_sprites.add(bullet)
                 bullets.add(bullet)
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
+                keys = pygame.key.get_pressed()
+                if event.key == pygame.K_e:
+                    player_pos = player.pos
+                    target_pos = pygame.mouse.get_pos()
+                    bullet = Bullet(walls, player_pos, target_pos)
+                    all_sprites.add(bullet)
+                    bullets.add(bullet)
+                if (event.key == pygame.K_d or event.key == pygame.K_RIGHT) and not keys[pygame.K_w] and not keys[
+                    pygame.K_UP] and not keys[pygame.K_s] and not keys[pygame.K_DOWN]:
                     player.vel.x = 5
-                elif event.key == pygame.K_a or event.key == pygame.K_LEFT:
+                elif (event.key == pygame.K_a or event.key == pygame.K_LEFT) and not keys[pygame.K_w] and not keys[
+                    pygame.K_UP] and not keys[pygame.K_s] and not keys[pygame.K_DOWN]:
                     player.vel.x = -5
-                elif event.key == pygame.K_w or event.key == pygame.K_UP:
+                elif (event.key == pygame.K_w or event.key == pygame.K_UP) and not keys[pygame.K_a] and not keys[
+                    pygame.K_LEFT] and not keys[pygame.K_d] and not keys[pygame.K_RIGHT]:
                     player.vel.y = -5
-                elif event.key == pygame.K_s or event.key == pygame.K_DOWN:
+                elif (event.key == pygame.K_s or event.key == pygame.K_DOWN) and not keys[pygame.K_a] and not keys[
+                    pygame.K_LEFT] and not keys[pygame.K_d] and not keys[pygame.K_RIGHT]:
                     player.vel.y = 5
             elif event.type == pygame.KEYUP:
                 if (event.key == pygame.K_d or event.key == pygame.K_RIGHT) and player.vel.x > 0:
@@ -250,6 +334,14 @@ def main():
                 elif (event.key == pygame.K_s or event.key == pygame.K_DOWN) and player.vel.y > 0:
                     player.vel.y = 0
         all_sprites.update()
+        for sprite in enemies:
+            sprite.collision_check(bullets)
+            sprite.calculate_velocity(player.pos)
+            sprite.follow_player(player.pos)
+
+        if not enemies:
+            end_screen(won=True)
+
         screen.fill((30, 30, 30))
         for sprite in all_sprites:
             screen.blit(sprite.image, sprite.rect.topleft + player.camera)
