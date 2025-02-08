@@ -481,11 +481,14 @@ def main():
         for sprite in coffee:
             pygame.sprite.spritecollide(player, coffee, True)
 
-        a = 0
+        coins_collected = 0
         for sprite in coins:
+            #if pygame.sprite.spritecollide(player, coins, True):
+            coins_collected_list = pygame.sprite.spritecollide(player, coins,True)  # True - удалить монетку
+            coins_collected += len(coins_collected_list)  # Увеличиваем счетчик на количество собранных в этот момент
             if pygame.sprite.spritecollide(player, coins, True):
-                a += 1
-                print(a)
+                print(coins_collected)
+
 
         if not enemies:
             end_screen(won=True)
