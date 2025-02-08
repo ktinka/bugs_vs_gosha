@@ -1,9 +1,10 @@
 import os
 import sys
-
+import sqlite3
 import pygame
+import math
 
-killed_enemies = 0
+
 used_medicine = 0
 
 
@@ -206,10 +207,19 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                     else:
                         self.image = self.images_left[self.current_frame]
                     self.last_frame_time = current_time
-
+        '''
         # Анимация стрельбы (если is_shooting = True)
         if self.is_shooting:
             if self.image in self.images_right or self.image == self.images_gun[0]:
+                self.image = self.images_gun[0]
+            else:
+                self.image = self.images_gun[1]
+            self.is_shooting = False
+        '''
+        # Анимация стрельбы (если is_shooting = True)
+        if self.is_shooting:
+            pos = pygame.mouse.get_pos()
+            if pos[0] >= self.pos[0]:
                 self.image = self.images_gun[0]
             else:
                 self.image = self.images_gun[1]
@@ -283,29 +293,26 @@ class Bullet(pygame.sprite.Sprite):
     def __init__(self, walls, start_pos, target_pos):
         super().__init__()
         self.image = pygame.Surface((10, 10))
-        self.image.fill((255, 0, 0), )
-        self.rect = self.image.get_rect(center=start_pos)
-        self.pos = pygame.math.Vector2(start_pos)
-        self.target = pygame.math.Vector2(target_pos)
+        self.image.fill((255, 0, 0))
+        self.rect = self.image.get_rect()
+        self.rect.center = start_pos
         self.walls = walls
-        self.speed = 10
-        self.calculate_velocity()
-
-    def calculate_velocity(self):
-        direction = self.target - self.pos
-        if direction.length() > 0:
-            self.velocity = direction.normalize() * self.speed
-        else:
-            self.velocity = pygame.math.Vector2(0, 0)
+        # Вычисляем угол и скорость пули
+        self.dx = target_pos[0] - start_pos[0]
+        self.dy = target_pos[1] - start_pos[1]
+        distance = math.sqrt(self.dx ** 2 + self.dy ** 2)
+        self.dx = self.dx / distance * 5
+        self.dy = self.dy / distance * 5
 
     def update(self):
-        self.pos += self.velocity
-        self.rect.center = self.pos
+        # Движение пули
+        self.rect.x += self.dx
+        self.rect.y += self.dy
 
-        if (self.target - self.pos).length() < self.speed:
-            self.kill()
+        # Проверка столкновений с препятствиями
         for _ in pygame.sprite.spritecollide(self, self.walls, False):
-            self.kill()
+                self.kill()
+
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -500,6 +507,53 @@ def main():
         clock.tick(100)
 
 if __name__ == '__main__':
+    # Устанавливаем соединение с базой данных
+    connection = sqlite3.connect('Game.db')
+    cursor = connection.cursor()
+
+    # Создаем таблицу
+    # ПЕРВАЯ ТАБЛИЦА (первый прямоугольник)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Maze1 (
+            size_x0 INTEGER,
+            size_y0 INTEGER,
+            size_x INTEGER,
+            size_y INTEGER
+            )
+            ''')
+
+    cursor.execute('''
+        INSERT INTO Maze1 (size_x0, size_y0, size_x, size_y) VALUES (0, 0, 100, 1300), (100, 0, 1100, 100),
+        (1100, 100, 100, 1200), (500, 100, 100, 500), (100, 300, 300, 100), (700, 400, 300, 100),
+        (100, 1200, 1000, 100), (200, 700, 100, 200), (700, 900, 100, 200)
+        ''')
+
+    # ВТОРАЯ ТАБЛИЦА (второй прямоугольник)
+    cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Maze2 (
+                size_x0 INTEGER,
+                size_y0 INTEGER,
+                size_x INTEGER,
+                size_y INTEGER
+                )
+                ''')
+
+    cursor.execute('''
+        INSERT INTO Maze2 (size_x0, size_y0, size_x, size_y) VALUES (0, 0, 100, 1300), (100, 0, 1100, 100),
+        (1100, 100, 100, 1200), (100, 1200, 1000, 100), (300, 900, 300, 100), (500, 100, 200, 500),
+        (300, 600, 400, 100), (600, 700, 100, 300)
+        ''')
+
+    # создаём массив с данными из таблицы Maze1
+    cursor.execute("SELECT * FROM Maze1")
+    Maze1 = cursor.fetchall()
+
+    # создаём массив с данными из таблицы Maze2
+    cursor.execute("SELECT * FROM Maze2")
+    Maze2 = cursor.fetchall()
+
+    connection.commit()
+    connection.close()
     pygame.init()
     main()
     pygame.quit()
