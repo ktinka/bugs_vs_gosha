@@ -4,36 +4,17 @@ import sqlite3
 import pygame
 import math
 
+FPS = 50
+WIDTH = 640
+HEIGHT = 480
 
-used_medicine = 0
+WHITE = (255, 255, 255)
+GREEN = (0, 100, 0)
+ORANGE = (233, 109, 26)
 
+killed_enemies = all_killed_enemies = 0
+money = all_money = 0
 
-def handle_button_click(buttons, pos):
-    for button in buttons:
-        if button.is_clicked(pos):
-            return button.button_id
-    return None
-
-
-def middle_screen():
-    font = pygame.font.Font(None, 30)
-    screen = pygame.display.set_mode((640, 480))
-    button1 = Button(50, 150, 200, 50, "УРОВЕНЬ 1", 1)
-    button2 = Button(350, 150, 200, 50, "УРОВЕНЬ 2", 2)
-    buttons = [button1, button2]
-    screen.fill((255, 255, 255))
-    button1.draw(screen)
-    button2.draw(screen)
-    pygame.display.flip()
-
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                return  # начинаем игру
-        pygame.display.flip()
 
 def load_image(name, colorkey=None):  # это для загрузки изображения
     fullname = os.path.join('data', name)
@@ -44,101 +25,72 @@ def load_image(name, colorkey=None):  # это для загрузки изоб�
     return image.convert_alpha()
 
 
-FPS = 50
-
-
 def terminate():
     pygame.quit()
     sys.exit()
 
 
-def start_screen(screen, clock):
-    intro_text = ["Гоша против Багов", "",
-                  "Правила игры",
-                  "Вы играете за программиста Гошу,",
-                  "Ваша задача - собрать достаточное",
-                  "количество монет, отстреливаясь от жуков.",
-                  "Управление: WASD - хождение, нажатие мышкой - стрельба"]
-
-    fon = pygame.transform.scale(load_image('fon2.jpg'), (700, 500))
-    screen.blit(fon, (0, 0))
-    font = pygame.font.Font(None, 30)
-    text_coord = 50
-    for line in intro_text:
-        string_rendered = font.render(line, 1, pygame.Color('white'))
-        intro_rect = string_rendered.get_rect()
-        text_coord += 10
-        intro_rect.top = text_coord
-        intro_rect.x = 10
-        text_coord += intro_rect.height
-        screen.blit(string_rendered, intro_rect)
-
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                return  1
-        pygame.display.flip()
-        clock.tick(FPS)
+def draw_bar(screen, x, y, value, bar_length, bar_height):
+    if value < 0:
+        value = 0
+    fill = (value / 100) * bar_length
+    outline_rect = pygame.Rect(x, y, bar_length, bar_height)
+    fill_rect = pygame.Rect(x, y, fill, bar_height)
+    pygame.draw.rect(screen, WHITE, fill_rect)
+    pygame.draw.rect(screen, WHITE, outline_rect, 2)
 
 
-def end_screen(won):
-    screen = pygame.display.set_mode((640, 480))
-    clock = pygame.time.Clock()
-    if won:
-        intro_text = ["Игра окончена", "Поздравляем, вы выиграли!",
-                      "Нажмите на любую клавишу для новой игры"]
-    else:
-        intro_text = ["Игра окончена", "К сожалению, вы проиграли!",
-                      "Нажмите на любую клавишу для новой игры"]
+class Button():
 
-    fon = pygame.transform.scale(load_image('fon2.jpg'), (700, 500))
-    screen.blit(fon, (0, 0))
-    font = pygame.font.Font(None, 30)
-    text_coord = 50
-    for line in intro_text:
-        string_rendered = font.render(line, 1, pygame.Color('white'))
-        intro_rect = string_rendered.get_rect()
-        text_coord += 10
-        intro_rect.top = text_coord
-        intro_rect.x = 10
-        text_coord += intro_rect.height
-        screen.blit(string_rendered, intro_rect)
+    def __init__(self, text, x=0, y=0, width=296, height=51, command=None, args=None):
 
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
-
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                main()
-
-        pygame.display.flip()
-        clock.tick(FPS)
-
-class Button:
-    def __init__(self, x, y, width, height, text, button_id):
-        self.rect = pygame.Rect(x, y, width, height)
         self.text = text
-        self.button_id = button_id  # Уникальный идентификатор кнопки
-        self.color = (100, 100, 100)
+        self.command = command
+        self.args = args
+
+        self.image_normal = pygame.Surface((width, height))
+        self.image_normal.fill(ORANGE)
+
+        self.image_hovered = pygame.Surface((width, height))
+        self.image_hovered.fill(GREEN)
+
+        self.image = self.image_normal
+        self.rect = self.image.get_rect()
+
+        font = pygame.font.SysFont('italic', 30)
+
+        text_image = font.render(text, True, WHITE)
+        text_rect = text_image.get_rect(center=self.rect.center)
+
+        self.image_normal.blit(text_image, text_rect)
+        self.image_hovered.blit(text_image, text_rect)
+
+        self.rect.topleft = (x, y)
+
+        self.hovered = False
+
+    def update(self):
+
+        if self.hovered:
+            self.image = self.image_hovered
+        else:
+            self.image = self.image_normal
 
     def draw(self, surface):
-        pygame.draw.rect(surface, self.color, self.rect)
-        font = pygame.font.Font(None, 30)
-        text_surface = font.render(self.text, True, (0, 0, 0))
-        text_rect = text_surface.get_rect(center=self.rect.center)
-        surface.blit(text_surface, text_rect)
 
-    def is_clicked(self, pos):
-        return self.rect.collidepoint(pos)
+        surface.blit(self.image, self.rect)
+
+    def handle_event(self, event):
+
+        if event.type == pygame.MOUSEMOTION:
+            self.hovered = self.rect.collidepoint(event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if self.hovered:
+                self.command(self.args)
 
 
 class Player(pygame.sprite.Sprite):  # класс игрока
-    def __init__(self, pos, walls, enemies, coffee,clock, current_time, *groups):
+    def __init__(self, pos, walls, enemies, coffee, clock, current_time, *groups):
         super().__init__(*groups)
         self.images_right = [load_image('player_run30.png'), load_image('player_run40.png')]
         self.images_left = [load_image('player_run30_left.png'), load_image('player_run40_left.png')]
@@ -227,21 +179,16 @@ class Player(pygame.sprite.Sprite):  # класс игрока
 
         for coffee in pygame.sprite.spritecollide(self, self.coffee, False):
             self.health += 5
-            Player.show(self)
         for enemy in pygame.sprite.spritecollide(self, self.enemies, False):
-            self.health -= 1
-            if self.health == 0:
+            self.health -= 0.1
+            if self.health <= 0:
                 end_screen(won=False)
-            Player.show(self)
-    def show(self):
-        pass
-        #print(self.health)
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, pos, walls, current_time, *groups):
+    def __init__(self, pos, walls, *groups):
         super().__init__(*groups)
-        self.image = load_image("enemy3.png")
+        self.image = load_image("enemy.png")
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=pos)
         self.pos = pygame.Vector2(pos)
@@ -263,10 +210,12 @@ class Enemy(pygame.sprite.Sprite):
             self.last_frame_time = current_time
 
     def collision_check(self, bullets):
+        global killed_enemies
         for _ in pygame.sprite.spritecollide(self, bullets, False):
             if self.health > 0:
                 self.health -= 1
             else:
+                killed_enemies += 1
                 self.kill()
 
     def calculate_velocity(self, player_pos):
@@ -296,23 +245,43 @@ class Bullet(pygame.sprite.Sprite):
         self.image.fill((255, 0, 0))
         self.rect = self.image.get_rect()
         self.rect.center = start_pos
+
         self.walls = walls
-        # Вычисляем угол и скорость пули
-        self.dx = target_pos[0] - start_pos[0]
-        self.dy = target_pos[1] - start_pos[1]
-        distance = math.sqrt(self.dx ** 2 + self.dy ** 2)
-        self.dx = self.dx / distance * 5
-        self.dy = self.dy / distance * 5
+        self.start_x, self.start_y = map(float, start_pos)
+        self.target_x, self.target_y = map(float, target_pos)
+
+        self.total_distance = math.sqrt((self.target_x - self.start_x) ** 2 + (self.target_y - self.start_y) ** 2)
+        self.speed = 5
+        self.traveled_distance = 0  # Сколько пуля уже пролетела
 
     def update(self):
-        # Движение пули
-        self.rect.x += self.dx
-        self.rect.y += self.dy
+        # Параметрическое уравнение прямой:
+        # x = start_x + t * (target_x - start_x)
+        # y = start_y + t * (target_y - start_y)
+        # где t изменяется от 0 до 1
 
-        # Проверка столкновений с препятствиями
-        for _ in pygame.sprite.spritecollide(self, self.walls, False):
-                self.kill()
+        if self.traveled_distance < self.total_distance:
+            # Вычисляем t, пропорциональное пройденному расстоянию
+            t = self.traveled_distance / self.total_distance
 
+            # Вычисляем новые координаты
+            new_x = self.start_x + t * (self.target_x - self.start_x)
+            new_y = self.start_y + t * (self.target_y - self.start_y)
+
+            # Перемещаем пулю
+            self.rect.center = (new_x, new_y)
+
+            # Проверяем столкновения НА ОТРЕЗКЕ пути, а не только в конечной точке
+            # (иначе пуля может "пролететь" сквозь тонкую стену)
+            for wall in pygame.sprite.spritecollide(self, self.walls, False):
+                self.kill()  # Уничтожаем пулю при столкновении
+                return  # Важно! Выходим из update() после уничтожения
+        else:
+            # Пуля достигла цели или пролетела максимальное расстояние
+            self.kill()  # Уничтожаем пулю
+
+        # Увеличиваем пройденное расстояние
+        self.traveled_distance += self.speed
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -331,8 +300,22 @@ class Medicine(pygame.sprite.Sprite):
 
     def collision_check(self, players, coffee):
         for _ in pygame.sprite.spritecollide(self, players, True):
-            #self.kill()
+            # self.kill()
             pygame.sprite.spritecollide(self, players, coffee, True)
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect)
+
+
+class Coin(pygame.sprite.Sprite):
+    def __init__(self, pos, *groups):
+        super().__init__(*groups)
+        self.image = load_image("coin.png")
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect(center=pos)
+        self.pos = pygame.Vector2(pos)
+        self.rect.x = pos[0]
+        self.rect.y = pos[1]
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -346,116 +329,171 @@ class Wall(pygame.sprite.Sprite):  # класс стен лабиринта
         self.rect = self.image.get_rect(topleft=(x, y))
 
 
-class Coin(pygame.sprite.Sprite):
-    def __init__(self, pos, *groups):
-        super().__init__(*groups)
-        self.image = load_image("coin.png")
-        self.mask = pygame.mask.from_surface(self.image)
-        self.rect = self.image.get_rect(center=pos)
-        self.pos = pygame.Vector2(pos)
-        self.rect.x = pos[0]
-        self.rect.y = pos[1]
-        self.quantity_coins = 0
-
-    def collision_check(self, players, coffee):
-        if pygame.sprite.spritecollide(self, players, coins, True):
-            self.quantity_coins += 1
-
-    def draw(self, screen):
-        screen.blit(self.image, self.rect)
-
-    def number(self):
-        return self.quantity_coins
+def start_screen(screen, clock):
+    global killed_enemies
+    global money
+    fon = pygame.transform.scale(load_image('start_game_fon.jpeg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+    money = killed_enemies = 0
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                main()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                return
+        pygame.display.flip()
+        clock.tick(FPS)
 
 
-def main():
-    screen = pygame.display.set_mode((640, 480))
+def end_screen(won, mode=0):
+    global killed_enemies, all_killed_enemies
+    global money, all_money
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
+    if won:
+        intro_text = ["Congratulations, you won!", "bugs killed:", str(killed_enemies),
+                      "coins earned:", str(money)]
+    else:
+        intro_text = ["Unfortunately, you have lost!", "bugs killed:", str(killed_enemies),
+                      "coins earned:", str(money)]
+    all_killed_enemies += killed_enemies
+    all_money += money
+    killed_enemies = money = 0
+    fon = pygame.transform.scale(load_image('gameover_fon.jpeg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+    font = pygame.font.Font(None, 30)
+    text_coord = 150
+    for line in intro_text:
+        string_rendered = font.render(line, 1, pygame.Color('white'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 10
+        intro_rect.top = text_coord
+        intro_rect.x = 220
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                main()
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_n:
+                    gameplay((screen, clock, mode))
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def rules_page(args):
+    screen = args[0]
+    clock = args[1]
+    fon = pygame.transform.scale(load_image('rules_fon.jpeg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                profile_page()
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def light_mode(all_sprites, walls, enemies, coffee, coins, current_time):
+    for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100),
+                 (1100, 100, 100, 1200), (500, 100, 100, 500),
+                 (100, 300, 300, 100), (700, 400, 300, 100),
+                 (100, 1200, 1000, 100), (200, 700, 100, 200), (700, 900, 100, 200)):
+        walls.add(Wall(*rect))
+    all_sprites.add(walls)
+
+    for pos in ((180, 250), (244, 639), (257, 1172), (594, 1136), (1064, 355)):
+        enemy = Enemy(pos, walls, all_sprites)
+        enemies.add(enemy)
+    all_sprites.add(enemies)
+
+    for pos in ((230, 190), (200, 1000), (800, 240), (950, 1000), (500, 850)):
+        cofee_class = Medicine(pos, all_sprites)
+        coffee.add(cofee_class)
+        all_sprites.add(coffee)
+
+    for pos in ((700, 600), (300, 1000), (900, 1000), (1000, 700), (700, 300)):
+        coin = Coin(pos, all_sprites)
+        coins.add(coin)
+        all_sprites.add(coins)
+
+
+def hard_mode(all_sprites, walls, enemies, coffee, coins, current_time):
+    for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100),
+                 (1100, 100, 100, 1200), (100, 1200, 1000, 100),
+                 (300, 900, 300, 100), (500, 100, 200, 500),
+                 (300, 600, 400, 100), (600, 700, 100, 300)):
+        walls.add(Wall(*rect))
+    all_sprites.add(walls)
+
+    for pos in ((180, 250), (580, 792), (150, 150), (480, 592), (290, 1260),
+                (663, 1160), (1100, 1100), (1000, 281), (663, 160), (700, 200),
+                (1103, 1060), (1000, 1108), (900, 381), (463, 190), (450, 130),
+                (900, 281), (960, 381), (890, 481)):
+        enemy = Enemy(pos, walls, all_sprites)
+        enemies.add(enemy)
+    all_sprites.add(enemies)
+
+    for pos in ((230, 200), (200, 1000), (880, 330), (1000, 1100), (500, 780)):
+        cofee_class = Medicine(pos, all_sprites)
+        coffee.add(cofee_class)
+        all_sprites.add(coffee)
+
+    for pos in ((230, 400), (1050, 1100), (880, 500), (200, 1100), (500, 1100)):
+        coin = Coin(pos, all_sprites)
+        coins.add(coin)
+        all_sprites.add(coins)
+
+
+def gameplay(args):
+    global money
+    screen = args[0]
+    clock = args[1]
+    mode = args[2]
     start_screen(screen, clock)
-    middle_screen()
     all_sprites = pygame.sprite.Group()
-    players = pygame.sprite.Group()
     walls = pygame.sprite.Group()
     enemies = pygame.sprite.Group()
     coffee = pygame.sprite.Group()
     coins = pygame.sprite.Group()
     bullets = pygame.sprite.Group()
-    button1 = Button(50, 150, 200, 50, "Button 1", 1)
-    button2 = Button(350, 150, 200, 50, "Button 2", 2)
-    buttons = [button1, button2]
-    pos = pygame.mouse.get_pos()
     current_time = pygame.time.get_ticks()
-    if handle_button_click(buttons, pos) == 1:
-        for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100),
-                     (1100, 100, 100, 1200), (500, 100, 100, 500),
-                     (100, 300, 300, 100), (700, 400, 300, 100),
-                     (100, 1200, 1000, 100), (200, 700, 100, 200), (700, 900, 100, 200)):
-            walls.add(Wall(*rect))
-
-        for pos in ((180, 250), (244, 639), (257, 1172), (594, 1136), (1064, 355)):
-            enemy = Enemy(pos, walls, current_time, all_sprites)
-            enemies.add(enemy)
-        all_sprites.add(enemies)
-        all_sprites.add(walls)
-
-        for pos in ((230, 190), (200, 1000), (800, 240), (950, 1000), (500,850)):
-            cofee_class = Medicine(pos, all_sprites)
-            coffee.add(cofee_class)
-            all_sprites.add(coffee)
-
-        for pos in ((700, 600), (300, 1000), (900, 1000), (1000, 700), (700, 300)):
-            coin = Coin(pos, all_sprites)
-            coins.add(coin)
-            all_sprites.add(coins)
-
-    elif handle_button_click(buttons, pos) == 2:
-        for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100),
-                     (1100, 100, 100, 1200), (100, 1200, 1000, 100),
-                     (300, 900, 300, 100), (500, 100, 200, 500),
-                     (300, 600, 400, 100), (600, 700, 100, 300)):
-            walls.add(Wall(*rect))
-        for pos in ((180, 250), (580, 792), (150, 150), (480, 592), (290, 1260),
-                    (663, 1160), (1100, 1100), (1000, 281), (663, 160), (700, 200),
-                    (1103, 1060), (1000, 1108), (900, 381), (463, 190), (450, 130),
-                    (900, 281), (960, 381), (890, 481)):
-            enemy = Enemy(pos, walls, current_time, all_sprites)
-            enemies.add(enemy)
-        all_sprites.add(enemies)
-        all_sprites.add(walls)
-
-        for pos in ((230, 200), (200, 1000), (880, 330), (1000, 1100), (500, 780)):
-            cofee_class = Medicine(pos, all_sprites)
-            coffee.add(cofee_class)
-            all_sprites.add(coffee)
-
-        for pos in ((230, 400), (1050, 1100), (880, 500), (200, 1100), (500, 1100)):
-            coin = Coin(pos, all_sprites)
-            coins.add(coin)
-            all_sprites.add(coins)
-
-
     player = Player((320, 240), walls, enemies, coffee, clock, current_time, all_sprites)
-    players.add(player)
-    all_sprites.add(players)
+    if mode == 0:
+        light_mode(all_sprites, walls, enemies, coffee, coins, current_time)
+    else:
+        hard_mode(all_sprites, walls, enemies, coffee, coins, current_time)
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                main()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
-                print(pos)
+
                 player.is_shooting = True
                 target_pos = event.pos
-                bullet = Bullet(walls, player.pos, target_pos)
+                x = player.pos[0] - 320 + target_pos[0]
+                y = player.pos[1] - 240 + target_pos[1]
+                bullet = Bullet(walls, player.pos, (x, y))
                 all_sprites.add(bullet)
                 bullets.add(bullet)
             elif event.type == pygame.KEYDOWN:
                 keys = pygame.key.get_pressed()
                 if event.key == pygame.K_e:
-                    player_pos = player.pos
+                    pos = pygame.mouse.get_pos()
+
+                    player.is_shooting = True
                     target_pos = pygame.mouse.get_pos()
-                    bullet = Bullet(walls, player_pos, target_pos)
+                    x = player.pos[0] - 320 + target_pos[0]
+                    y = player.pos[1] - 240 + target_pos[1]
+                    bullet = Bullet(walls, player.pos, (x, y))
                     all_sprites.add(bullet)
                     bullets.add(bullet)
                 if (event.key == pygame.K_d or event.key == pygame.K_RIGHT) and not keys[pygame.K_w] and not keys[
@@ -488,23 +526,90 @@ def main():
         for sprite in coffee:
             pygame.sprite.spritecollide(player, coffee, True)
 
-        coins_collected = 0
         for sprite in coins:
-            #if pygame.sprite.spritecollide(player, coins, True):
-            coins_collected_list = pygame.sprite.spritecollide(player, coins,True)  # True - удалить монетку
-            coins_collected += len(coins_collected_list)  # Увеличиваем счетчик на количество собранных в этот момент
+            coins_collected_list = pygame.sprite.spritecollide(player, coins, True)  # True - удалить монетку
+            money += len(coins_collected_list)  # Увеличиваем счетчик на количество собранных в этот момент
             if pygame.sprite.spritecollide(player, coins, True):
-                print(coins_collected)
-
+                print(money)
 
         if not enemies:
-            end_screen(won=True)
+            if mode == 0:
+                end_screen(won=True, mode=0)
+            else:
+                end_screen(won=True, mode=1)
 
-        screen.fill((30, 30, 30))
+        screen.fill((30, 40, 30))
         for sprite in all_sprites:
             screen.blit(sprite.image, sprite.rect.topleft + player.camera)
+        draw_bar(screen, 64, 38, player.health, 100, 10)
         pygame.display.flip()
         clock.tick(100)
+
+
+def profile_page(*args):
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+    info_text = [str(all_money), str(all_killed_enemies)]
+    fon = pygame.transform.scale(load_image('profile_fon.jpeg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+    font = pygame.font.Font(None, 30)
+    text_coord = 138
+    for line in info_text:
+        string_rendered = font.render(line, 1, pygame.Color('white'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 48
+        intro_rect.top = text_coord
+        intro_rect.x = 120
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
+
+    btn3 = Button("Game Rules", 23, 381, 296, 51, rules_page, [screen, clock])
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                main()
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_n:
+                    gameplay((screen, clock))
+
+            btn3.handle_event(event)
+
+        btn3.update()
+        btn3.draw(screen)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def main():
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+    fon = pygame.transform.scale(load_image('main_fon.jpeg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+    btn1 = Button('Light mode', 172, 189, 296, 51, gameplay, (screen, clock, 0))
+    btn2 = Button('Hard mode', 172, 274, 296, 51, gameplay, (screen, clock, 1))
+    btn3 = Button("Profile", 172, 359, 296, 51, profile_page)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+
+            btn1.handle_event(event)
+            btn2.handle_event(event)
+            btn3.handle_event(event)
+
+        btn1.update()
+        btn2.update()
+        btn3.update()
+
+        btn1.draw(screen)
+        btn2.draw(screen)
+        btn3.draw(screen)
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
 
 if __name__ == '__main__':
     # Устанавливаем соединение с базой данных
