@@ -3,6 +3,14 @@ import sys
 
 import pygame
 
+FPS = 50
+WIDTH = 640
+HEIGHT = 480
+
+WHITE = (255, 255, 255)
+GREEN = (0, 100, 0)
+ORANGE = (233, 109, 26)
+
 killed_enemies = 0
 used_medicine = 0
 
@@ -14,9 +22,6 @@ def load_image(name, colorkey=None):  # это для загрузки изоб�
         sys.exit()
     image = pygame.image.load(fullname)
     return image.convert_alpha()
-
-
-FPS = 50
 
 
 def terminate():
@@ -31,8 +36,7 @@ def start_screen(screen, clock):
                   "Ваша задача - собрать достаточное",
                   "количество монет, отстреливаясь от жуков.",
                   "Управление: WASD - хождение, E - стрельба"]
-
-    fon = pygame.transform.scale(load_image('fon2.jpg'), (700, 500))
+    fon = pygame.transform.scale(load_image('fon2.jpg'), (WIDTH, HEIGHT))
     screen.blit(fon, (0, 0))
     font = pygame.font.Font(None, 30)
     text_coord = 50
@@ -44,29 +48,28 @@ def start_screen(screen, clock):
         intro_rect.x = 10
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
-
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                terminate()
+                main()
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
-                return  # начинаем игру
+                return
         pygame.display.flip()
         clock.tick(FPS)
 
 
-def end_screen(won):
-    screen = pygame.display.set_mode((640, 480))
+def end_screen(won, mode=0):
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     if won:
         intro_text = ["Игра окончена", "Поздравляем, вы выиграли!",
-                      "Нажмите на любую клавишу для новой игры"]
+                      "Нажмите на клавишу N для новой игры"]
     else:
         intro_text = ["Игра окончена", "К сожалению, вы проиграли!",
-                      "Нажмите на любую клавишу для новой игры"]
+                      "Нажмите на клавишу N для новой игры"]
 
-    fon = pygame.transform.scale(load_image('fon2.jpg'), (700, 500))
+    fon = pygame.transform.scale(load_image('fon2.jpg'), (WIDTH, HEIGHT))
     screen.blit(fon, (0, 0))
     font = pygame.font.Font(None, 30)
     text_coord = 50
@@ -82,23 +85,70 @@ def end_screen(won):
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                terminate()
-
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
                 main()
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_n:
+                    gameplay((screen, clock, mode))
 
         pygame.display.flip()
         clock.tick(FPS)
+
+
+class Button():
+
+    def __init__(self, text, x=0, y=0, width=296, height=51, command=None, args=None):
+
+        self.text = text
+        self.command = command
+        self.args = args
+
+        self.image_normal = pygame.Surface((width, height))
+        self.image_normal.fill(ORANGE)
+
+        self.image_hovered = pygame.Surface((width, height))
+        self.image_hovered.fill(GREEN)
+
+        self.image = self.image_normal
+        self.rect = self.image.get_rect()
+
+        font = pygame.font.SysFont('italic', 30)
+
+        text_image = font.render(text, True, WHITE)
+        text_rect = text_image.get_rect(center=self.rect.center)
+
+        self.image_normal.blit(text_image, text_rect)
+        self.image_hovered.blit(text_image, text_rect)
+
+        self.rect.topleft = (x, y)
+
+        self.hovered = False
+
+    def update(self):
+
+        if self.hovered:
+            self.image = self.image_hovered
+        else:
+            self.image = self.image_normal
+
+    def draw(self, surface):
+
+        surface.blit(self.image, self.rect)
+
+    def handle_event(self, event):
+
+        if event.type == pygame.MOUSEMOTION:
+            self.hovered = self.rect.collidepoint(event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if self.hovered:
+                self.command(self.args)
 
 
 class Player(pygame.sprite.Sprite):  # класс игрока
     def __init__(self, pos, walls, enemies, clock, current_time, *groups):
         super().__init__(*groups)
-        self.images_right = [load_image('player_run30.png'), load_image('player_run40.png')]
-        self.images_left = [load_image('player_run30_left.png'), load_image('player_run40_left.png')]
-        self.images_gun = [load_image('player_gun_right.png'), load_image('player_gun_left.png')]
-        self.image = self.images_right[0]  # пока что изображение игрока определяется этими двумя строками
+        self.images = [load_image('player_run30.png'), load_image('player_run40.png')]
+        self.image = self.images[0]  # пока что изображение игрока определяется этими двумя строками
         self.rect = self.image.get_rect(center=pos)
         self.vel = pygame.math.Vector2(0, 0)
         self.pos = pygame.math.Vector2(pos)
@@ -107,14 +157,9 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         self.current_frame = 0
         self.last_frame_time = 0
         self.frame_rate = 250
-<<<<<<< HEAD
-        self.is_shooting = False
-        self.health = 100
-=======
 
-        self.health = 1000
+        self.health = 100
         self.clock = clock
->>>>>>> origin/main
         self.enemies = enemies
         self.current_time = current_time
 
@@ -127,8 +172,8 @@ class Player(pygame.sprite.Sprite):  # класс игрока
         if (keys[pygame.K_a] or keys[pygame.K_LEFT]) or (keys[pygame.K_w] or keys[pygame.K_UP]) or (
                 keys[pygame.K_s] or keys[pygame.K_DOWN]) or (keys[pygame.K_d] or keys[pygame.K_RIGHT]):
             if self.current_time - self.last_frame_time >= self.frame_rate:
-                self.current_frame = (self.current_frame + 1) % len(self.images_right)
-                self.image = self.images_right[self.current_frame]
+                self.current_frame = (self.current_frame + 1) % len(self.images)
+                self.image = self.images[self.current_frame]
                 self.last_frame_time = self.current_time
 
     def update(self):
@@ -159,21 +204,9 @@ class Player(pygame.sprite.Sprite):  # класс игрока
             if (keys[pygame.K_a] or keys[pygame.K_LEFT]) or (keys[pygame.K_w] or keys[pygame.K_UP]) or (
                     keys[pygame.K_s] or keys[pygame.K_DOWN]) or (keys[pygame.K_d] or keys[pygame.K_RIGHT]):
                 if current_time - self.last_frame_time >= self.frame_rate:
-                    self.current_frame = (self.current_frame + 1) % len(self.images_right)
-                    if (keys[pygame.K_w] or keys[pygame.K_UP]) or (keys[pygame.K_s] or keys[pygame.K_DOWN]) or (
-                            keys[pygame.K_d] or keys[pygame.K_RIGHT]):
-                        self.image = self.images_right[self.current_frame]
-                    else:
-                        self.image = self.images_left[self.current_frame]
+                    self.current_frame = (self.current_frame + 1) % len(self.images)
+                    self.image = self.images[self.current_frame]
                     self.last_frame_time = current_time
-
-        # Анимация стрельбы (если is_shooting = True)
-        if self.is_shooting:
-            if self.image in self.images_right or self.image == self.images_gun[0]:
-                self.image = self.images_gun[0]
-            else:
-                self.image = self.images_gun[1]
-            self.is_shooting = False
 
         for enemy in pygame.sprite.spritecollide(self, self.enemies, False):
             """if self.vel.x > 0:
@@ -182,8 +215,8 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                 self.rect.left = enemy.rect.right
             self.pos.x = self.rect.centerx
             self.camera.x += self.vel.x"""
-            self.health -= 1
-            if self.health == 0:
+            self.health -= 0.1
+            if self.health <= 0:
                 end_screen(won=False)
         for enemy in pygame.sprite.spritecollide(self, self.enemies, False):
             """if self.vel.y > 0:
@@ -192,8 +225,8 @@ class Player(pygame.sprite.Sprite):  # класс игрока
                 self.rect.top = enemy.rect.bottom
             self.pos.y = self.rect.centery
             self.camera.y += self.vel.y"""
-            self.health -= 1
-            if self.health == 0:
+            self.health -= 0.1
+            if self.health <= 0:
                 end_screen(won=False)
 
 
@@ -247,6 +280,7 @@ class Enemy(pygame.sprite.Sprite):
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
+
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, walls, start_pos, target_pos):
         super().__init__()
@@ -291,33 +325,63 @@ class Wall(pygame.sprite.Sprite):  # класс стен лабиринта
         self.rect = self.image.get_rect(topleft=(x, y))
 
 
-def main():
-    screen = pygame.display.set_mode((640, 480))
-    clock = pygame.time.Clock()
+def light_mode(all_sprites, walls, enemies, current_time):
+    for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100), (1100, 100, 100, 1200),
+                 (500, 100, 100, 500), (100, 300, 300, 100), (700, 400, 300, 100),
+                 (100, 1200, 1000, 100), (200, 700, 100, 200), (730, 880, 100, 200)):
+        walls.add(Wall(*rect))
+    all_sprites.add(walls)
+    for pos in ((180, 250), (150, 110)):
+        enemy = Enemy(pos, walls, current_time, all_sprites)
+        enemies.add(enemy)
+    all_sprites.add(enemies)
+
+
+def hard_mode(all_sprites, walls, enemies, current_time):
+    for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100),
+                     (1100, 100, 100, 1200), (100, 1200, 1000, 100),
+                     (300, 900, 300, 100), (500, 100, 200, 500),
+                     (300, 600, 400, 100), (600, 700, 100, 300)):
+        walls.add(Wall(*rect))
+    all_sprites.add(walls)
+    """for pos in ((180, 250), (150, 110)):
+        enemy = Enemy(pos, walls, current_time, all_sprites)
+        enemies.add(enemy)
+    all_sprites.add(enemies)"""
+
+def draw_bar(screen, x, y, value, bar_length, bar_height):
+    if value < 0:
+        value = 0
+    fill = (value / 100) * bar_length
+    outline_rect = pygame.Rect(x, y, bar_length, bar_height)
+    fill_rect = pygame.Rect(x, y, fill, bar_height)
+    pygame.draw.rect(screen, WHITE, fill_rect)
+    pygame.draw.rect(screen, WHITE, outline_rect, 2)
+
+def gameplay(args):
+    screen = args[0]
+    clock = args[1]
+    mode = args[2]
     start_screen(screen, clock)
     all_sprites = pygame.sprite.Group()
     walls = pygame.sprite.Group()
     enemies = pygame.sprite.Group()
     bullets = pygame.sprite.Group()
-    for rect in ((0, 0, 100, 1300), (100, 0, 1100, 100),
-                 (1100, 100, 100, 1200), (500, 100, 100, 500),
-                 (100, 300, 300, 100), (700, 400, 300, 100),
-                 (100, 1200, 1000, 100), (200, 700, 100, 200), (730, 880, 100, 200)):
-        walls.add(Wall(*rect))
-    all_sprites.add(walls)
     current_time = pygame.time.get_ticks()
-    for pos in ((180, 250), (150, 110)):
-        enemy = Enemy(pos, walls, current_time, all_sprites)
-        enemies.add(enemy)
-    all_sprites.add(enemies)
     player = Player((320, 240), walls, enemies, clock, current_time, all_sprites)
+    if mode == 0:
+        light_mode(all_sprites, walls, enemies, current_time)
+    else:
+        hard_mode(all_sprites, walls, enemies, current_time)
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                main()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                player.is_shooting = True
+                # Создание пули в координатах персонажа
+                player_pos = player.pos
                 target_pos = event.pos
                 bullet = Bullet(walls, player_pos, target_pos)
                 all_sprites.add(bullet)
@@ -358,16 +422,58 @@ def main():
             sprite.follow_player(player.pos)
 
         if not enemies:
-            end_screen(won=True)
+            if mode == 0:
+                end_screen(won=True, mode=0)
+            else:
+                end_screen(won=True, mode=1)
 
-        screen.fill((30, 30, 30))
+        screen.fill((30, 40, 30))
         for sprite in all_sprites:
             screen.blit(sprite.image, sprite.rect.topleft + player.camera)
+        draw_bar(screen, 64, 38, player.health, 100, 10)
         pygame.display.flip()
         clock.tick(100)
+
+
+def profile_page(*args):
+    pass
+
+
+def rules_page(*args):
+    pass
+
+
+def main():
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+    fon = pygame.transform.scale(load_image('start_screen_fon.jpeg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+    btn1 = Button('Light mode', 172, 189, 296, 51, gameplay, (screen, clock, 0))
+    btn2 = Button('Hard mode', 172, 274, 296, 51, gameplay, (screen, clock, 1))
+    btn3 = Button("Profile", 172, 359, 296, 51, profile_page)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+
+            btn1.handle_event(event)
+            btn2.handle_event(event)
+            btn3.handle_event(event)
+
+        btn1.update()
+        btn2.update()
+        btn3.update()
+
+        btn1.draw(screen)
+        btn2.draw(screen)
+        btn3.draw(screen)
+
+        pygame.display.flip()
+        clock.tick(FPS)
 
 
 if __name__ == '__main__':
     pygame.init()
     main()
     pygame.quit()
+
