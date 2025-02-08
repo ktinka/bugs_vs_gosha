@@ -396,7 +396,7 @@ def main():
             coffee.add(cofee_class)
             all_sprites.add(coffee)
 
-        for pos in ((230, 190), (200, 1000), (800, 240), (950, 1000), (500,850)):
+        for pos in ((700, 600), (300, 1000), (900, 1000), (1000, 700), (700, 300)):
             coin = Coin(pos, all_sprites)
             coins.add(coin)
             all_sprites.add(coins)
@@ -421,7 +421,7 @@ def main():
             coffee.add(cofee_class)
             all_sprites.add(coffee)
 
-        for pos in ((200, 100), (100, 900), (700, 340), (900, 1000), (567,650)):
+        for pos in ((230, 400), (1050, 1100), (880, 500), (200, 1100), (500, 1100)):
             coin = Coin(pos, all_sprites)
             coins.add(coin)
             all_sprites.add(coins)
